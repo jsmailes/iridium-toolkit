@@ -505,6 +505,7 @@ class ReassemblePPM(Reassemble):
         self.idx=None
         self.sv_pos = {}
         self.deltas = []
+        self.dist_min = None
         pass
 
     r1=re.compile(r'.* slot:(\d)')
@@ -551,7 +552,8 @@ class ReassemblePPM(Reassemble):
 
         if q.sat not in self.sv_pos: return None
         # Only accept IBC with a very recent position update via IRA
-        if float(q.mstime) - self.sv_pos[q.sat]['mstime'] > 100: return None
+        dt = float(q.mstime) - self.sv_pos[q.sat]['mstime']
+        if dt > 90: return None
         return q
 
     def process(self,q):
@@ -575,6 +577,10 @@ class ReassemblePPM(Reassemble):
         sy = sv_pos['y']
         sz = sv_pos['z']
         d_m = math.sqrt((sx-ox)**2 + (sy-oy)**2 + (sz-oz)**2)
+        if not self.dist_min or d_m < self.dist_min:
+            self.dist_min = d_m
+            self.t_min = q.itime
+            self.delta_min = (q.uxtime - q.itime).total_seconds()
         d_s = d_m / 299792458.
         q.itime+=datetime.timedelta(seconds=d_s)
 
@@ -644,6 +650,10 @@ class ReassemblePPM(Reassemble):
         print("rec.tmin %f"%(self.tmin))
         print("rec.tmax %f"%(self.tmax))
         print("rec.ppm %.3f"%(delta/alltime*1000000))
+
+        print("dist_min:", self.dist_min)
+        print("t_min:", self.t_min)
+        print("delta_min:", self.delta_min)
 
         print("median", numpy.median(self.deltas))
         print("average", numpy.median(self.deltas))
